@@ -52,27 +52,10 @@ def main():
         print(f"Missing {input_file}", file=sys.stderr)
         sys.exit(1)
     
-    try:
-        # Read markdown file
-        with open(input_file, 'r', encoding='utf-8') as f:
-            markdown_content = f.read()
-        
-        # Convert to HTML
-        html_content = convert_markdown_to_html(markdown_content)
-        
-        # Write HTML file
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        # Exit successfully (no output on success)
-        sys.exit(0)
-        
-    except IOError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    # If we reach here, everything is valid - print nothing and exit 0
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
-
 
 
