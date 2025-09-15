@@ -6,6 +6,7 @@ A simple script that takes a Markdown file and converts it
 to an HTML file. Currently, it handles:
 - Headings (# to ######)
 - Unordered lists (- item)
+- Ordered lists (* item)
 """
 import sys
 import os
@@ -16,16 +17,20 @@ def convert_markdown_to_html(input_file, output_file):
     with open(input_file, "r", encoding="utf-8") as f_in, \
             open(output_file, "w", encoding="utf-8") as f_out:
 
-        inside_list = False  # track if we're inside a <ul>
+        inside_ul = False
+        inside_ol = False
 
         for line in f_in:
-            line = line.rstrip()  # remove trailing newline/spaces
+            line = line.rstrip()
 
             if line.startswith("#"):
-                # Close list if we were in one
-                if inside_list:
+                # Close lists if any are open
+                if inside_ul:
                     f_out.write("</ul>\n")
-                    inside_list = False
+                    inside_ul = False
+                if inside_ol:
+                    f_out.write("</ol>\n")
+                    inside_ol = False
 
                 # Headings
                 level = len(line.split(" ")[0])
@@ -33,24 +38,40 @@ def convert_markdown_to_html(input_file, output_file):
                 if 1 <= level <= 6:
                     f_out.write(f"<h{level}>{text}</h{level}>\n")
 
-            elif line.startswith("- "):
-                # Start list if not already inside one
-                if not inside_list:
+            elif line.startswith("- "):  # unordered list
+                if inside_ol:  # close ol if switching
+                    f_out.write("</ol>\n")
+                    inside_ol = False
+                if not inside_ul:
                     f_out.write("<ul>\n")
-                    inside_list = True
+                    inside_ul = True
+                text = line[2:].strip()
+                f_out.write(f"<li>{text}</li>\n")
 
+            elif line.startswith("* "):  # ordered list
+                if inside_ul:  # close ul if switching
+                    f_out.write("</ul>\n")
+                    inside_ul = False
+                if not inside_ol:
+                    f_out.write("<ol>\n")
+                    inside_ol = True
                 text = line[2:].strip()
                 f_out.write(f"<li>{text}</li>\n")
 
             else:
-                # If a blank or non-markdown line ends a list
-                if inside_list:
+                # Close any open list if line doesn't belong to one
+                if inside_ul:
                     f_out.write("</ul>\n")
-                    inside_list = False
+                    inside_ul = False
+                if inside_ol:
+                    f_out.write("</ol>\n")
+                    inside_ol = False
 
-        # Close any unclosed list at EOF
-        if inside_list:
+        # Close at EOF
+        if inside_ul:
             f_out.write("</ul>\n")
+        if inside_ol:
+            f_out.write("</ol>\n")
 
 
 def main():
@@ -72,3 +93,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
