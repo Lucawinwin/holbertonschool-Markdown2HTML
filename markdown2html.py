@@ -1,96 +1,68 @@
 #!/usr/bin/python3
 """
-markdown2html module
+Main function that orchestrates the Markdown to HTML conversion process.
 
-A simple script that takes a Markdown file and converts it
-to an HTML file. Currently, it handles:
-- Headings (# to ######)
-- Unordered lists (- item)
-- Ordered lists (* item)
+This function:
+1. Validates command line arguments
+2. Checks if input file exists
+3. Tests write permissions for output file
+4. Reads and processes the Markdown file
+5. Converts Markdown headings to HTML
+6. Writes the result to the output file
+
+Args:
+    None (uses sys.argv for command line arguments)
+
+Returns:
+    None
+
+Exits:
+    - Exit code 1: Invalid arguments, missing input file, or write permission error
+    - Exit code 0: Successful conversion (implicit)
+
+Expected command line arguments:
+    sys.argv[1]: Path to input Markdown file
+    sys.argv[2]: Path to output HTML file
 """
+
 import sys
 import os
 
 
-def convert_markdown_to_html(input_file, output_file):
-    """Convert Markdown headings and lists into HTML"""
-    with open(input_file, "r", encoding="utf-8") as f_in, \
-            open(output_file, "w", encoding="utf-8") as f_out:
-
-        inside_ul = False
-        inside_ol = False
-
-        for line in f_in:
-            line = line.rstrip()
-
-            if line.startswith("#"):
-                # Close lists if any are open
-                if inside_ul:
-                    f_out.write("</ul>\n")
-                    inside_ul = False
-                if inside_ol:
-                    f_out.write("</ol>\n")
-                    inside_ol = False
-
-                # Headings
-                level = len(line.split(" ")[0])
-                text = line[level:].strip()
-                if 1 <= level <= 6:
-                    f_out.write(f"<h{level}>{text}</h{level}>\n")
-
-            elif line.startswith("- "):  # unordered list
-                if inside_ol:  # close ol if switching
-                    f_out.write("</ol>\n")
-                    inside_ol = False
-                if not inside_ul:
-                    f_out.write("<ul>\n")
-                    inside_ul = True
-                text = line[2:].strip()
-                f_out.write(f"<li>{text}</li>\n")
-
-            elif line.startswith("* "):  # ordered list
-                if inside_ul:  # close ul if switching
-                    f_out.write("</ul>\n")
-                    inside_ul = False
-                if not inside_ol:
-                    f_out.write("<ol>\n")
-                    inside_ol = True
-                text = line[2:].strip()
-                f_out.write(f"<li>{text}</li>\n")
-
-            else:
-                # Close any open list if line doesn't belong to one
-                if inside_ul:
-                    f_out.write("</ul>\n")
-                    inside_ul = False
-                if inside_ol:
-                    f_out.write("</ol>\n")
-                    inside_ol = False
-
-        # Close at EOF
-        if inside_ul:
-            f_out.write("</ul>\n")
-        if inside_ol:
-            f_out.write("</ol>\n")
-
-
-def main():
-    """Main entry point of the script"""
+def main() -> None:
     if len(sys.argv) < 3:
         sys.stderr.write("Usage: ./markdown2html.py README.md README.html\n")
         sys.exit(1)
 
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    in_md = sys.argv[1]
+    out_html = sys.argv[2]
 
-    if not os.path.isfile(input_file):
-        sys.stderr.write(f"Missing {input_file}\n")
+    if not os.path.exists(in_md):
+        sys.stderr.write(f"Missing {in_md}\n")
         sys.exit(1)
 
-    convert_markdown_to_html(input_file, output_file)
-    sys.exit(0)
+    try:
+        with open(out_html, "w", encoding="utf-8"):
+            pass
+    except OSError:
+        sys.exit(1)
 
+    co = []
+
+    with open(in_md, mode="r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#"):
+                nb = len(line) - len(line.lstrip("#"))
+                text = line.lstrip("#")
+                text = text.strip()
+                html_line = f"<h{nb}>{text}</h{nb}>"
+                co.append(html_line)
+
+    with open(out_html, mode="w", encoding="utf-8") as o:
+        for html_line in co:
+            o.write(html_line + "\n")
+
+    if 
 
 if __name__ == "__main__":
     main()
-
