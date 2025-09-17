@@ -3,13 +3,33 @@
 markdown2html module
 
 Ce script convertit un fichier Markdown en fichier HTML.
-Pour l’instant, il ne fait que gérer les vérifications de base :
-- nombre d’arguments
-- existence du fichier Markdown d’entrée
+Actuellement, il gère la syntaxe des titres (# à ######).
 """
 
 import sys
 import os
+
+
+def convert_markdown_to_html(input_file, output_file):
+    """
+    Convertit un fichier Markdown en fichier HTML
+    en gérant uniquement les titres (# à ######).
+    """
+    with open(input_file, "r", encoding="utf-8") as f_in, \
+            open(output_file, "w", encoding="utf-8") as f_out:
+        for line in f_in:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                level = len(line.split(" ")[0])
+                if 1 <= level <= 6:
+                    content = line[level + 1:].strip()
+                    f_out.write(f"<h{level}>{content}</h{level}>\n")
+                else:
+                    f_out.write(line + "\n")
+            else:
+                f_out.write(line + "\n")
 
 
 def main():
@@ -27,10 +47,10 @@ def main():
         sys.stderr.write(f"Missing {input_file}\n")
         sys.exit(1)
 
-    # Plus tard, on ajoutera la logique de conversion Markdown → HTML
-    # Pour l’instant, on respecte juste les consignes
+    convert_markdown_to_html(input_file, output_file)
     sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
+
