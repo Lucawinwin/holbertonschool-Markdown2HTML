@@ -1,120 +1,130 @@
 #!/usr/bin/python3
 """
-Markdown to HTML
+Markdown to HTML converter
 """
-
 import sys
 import os
 import re
 import hashlib
 
 
-def convert_markdown(md_content):
-    """
-    Convert Markdown headings, lists, paragraphs, bold, emphasis,
-    and custom syntax to HTML.
-    """
-    html_content = []
-    in_ulist = False
-    in_olist = False
-    in_paragraph = False
-    paragraph_lines = []
+def parse_inline(text):
+    """Handle inline formatting: bold, em, [[md5]], ((remove c))"""
+    # Bold **text**
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    # Emphasis __text__
+    text = re.sub(r"__(.+?)__", r"<em>\1</em>", text)
+    # [[text]] -> md5
+    text = re.sub(r"\[\[(.+?)\]\]",
+                  lambda m: hashlib.md5(m.group(1).encode()).hexdigest(),
+                  text)
+    # ((text)) -> remove c/C
+    text = re.sub(r"\(\((.+?)\)\)",
+                  lambda m: m.group(1).replace("c", "").replace("C", ""),
+                  text)
+    return text
 
-    def close_paragraph():
-        nonlocal paragraph_lines, in_paragraph
-        if paragraph_lines:
-            html_content.append('<p>')
-            for i, line in enumerate(paragraph_lines):
-                if i > 0:
-                    html_content.append('<br/>')
-                html_content.append(apply_text_styles(line))
-            html_content.append('</p>')
-            paragraph_lines = []
-            in_paragraph = False
 
-    def apply_text_styles(text):
-        """ Convert Markdown bold, emphasis, and custom syntax to HTML. """
-        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-        text = re.sub(r'__(.+?)__', r'<em>\1</em>', text)
-        text = re.sub(r'\[\[(.+?)\]\]', lambda m: hashlib.md5(
-            m.group(1).encode()).hexdigest(), text)
-        text = re.sub(r'\(\((.+?)\)\)', lambda m: re.sub(
-            r'[cC]', '', m.group(1)), text)
-        return text
+def convert_markdown(lines):
+    """Convert Markdown lines to HTML lines"""
+    html = []
+    in_ul = False
+    in_ol = False
+    in_p = False
 
-    for line in md_content.splitlines():
-        match_heading = re.match(r'(#{1,6}) (.+)', line)
-        if match_heading:
-            close_paragraph()
-            level = len(match_heading.group(1))
-            text = apply_text_styles(match_heading.group(2))
-            html_content.append(f'<h{level}>{text}</h{level}>')
-            if in_ulist:
-                html_content.append('</ul>')
-                in_ulist = False
-            if in_olist:
-                html_content.append('</ol>')
-                in_olist = False
-        elif line.startswith('- '):
-            close_paragraph()
-            if in_olist:
-                html_content.append('</ol>')
-                in_olist = False
-            if not in_ulist:
-                html_content.append('<ul>')
-                in_ulist = True
-            html_content.append(f'<li>{apply_text_styles(line[2:])}</li>')
-        elif line.startswith('* '):
-            close_paragraph()
-            if in_ulist:
-                html_content.append('</ul>')
-                in_ulist = False
-            if not in_olist:
-                html_content.append('<ol>')
-                in_olist = True
-            html_content.append(f'<li>{apply_text_styles(line[2:])}</li>')
+    for line in lines:
+        line = line.rstrip("\n")
+
+        # Başlıqlar
+        if line.startswith("#"):
+            level = len(line.split(" ")[0])
+            if 1 <= level <= 6:
+                if in_p:
+                    html.append("</p>")
+                    in_p = False
+                html.append(
+                    f"<h{level}>{parse_inline(line[level:].strip())}</h{level}>")
+                continue
+
+        # Unordered list (- )
+        if line.startswith("- "):
+            if in_p:
+                html.append("</p>")
+                in_p = False
+            if not in_ul:
+                html.append("<ul>")
+                in_ul = True
+            html.append(f"<li>{parse_inline(line[2:].strip())}</li>")
+            continue
         else:
-            if in_ulist:
-                html_content.append('</ul>')
-                in_ulist = False
-            if in_olist:
-                html_content.append('</ol>')
-                in_olist = False
-            if line.strip():
-                paragraph_lines.append(line)
-                in_paragraph = True
-            else:
-                close_paragraph()
+            if in_ul:
+                html.append("</ul>")
+                in_ul = False
 
-    close_paragraph()
-    if in_ulist:
-        html_content.append('</ul>')
-    if in_olist:
-        html_content.append('</ol>')
+        # Ordered list (* )
+        if line.startswith("* "):
+            if in_p:
+                html.append("</p>")
+                in_p = False
+            if not in_ol:
+                html.append("<ol>")
+                in_ol = True
+            html.append(f"<li>{parse_inline(line[2:].strip())}</li>")
+            continue
+        else:
+            if in_ol:
+                html.append("</ol>")
+                in_ol = False
 
-    return '\n'.join(html_content)
+        # Boş sətir -> paraqraf bağla
+        if line.strip() == "":
+            if in_p:
+                html.append("</p>")
+                in_p = False
+            continue
+
+        # Paraqraf
+        if not in_p:
+            html.append("<p>")
+            html.append(parse_inline(line))
+            in_p = True
+        else:
+            html.append("<br/>")
+            html.append(parse_inline(line))
+
+    # Açıq tag-ları bağla
+    if in_ul:
+        html.append("</ul>")
+    if in_ol:
+        html.append("</ol>")
+    if in_p:
+        html.append("</p>")
+
+    return html
 
 
 def main():
-    if len(sys.argv) < 3:
-        sys.stderr.write("Usage: ./markdown2html.py README.md README.html\n")
-        exit(1)
+    """Main entry point"""
+    if len(sys.argv) != 3:
+        print("Usage: ./markdown2html.py README.md README.html",
+              file=sys.stderr)
+        sys.exit(1)
 
-    md_file = sys.argv[1]
-    html_file = sys.argv[2]
+    infile, outfile = sys.argv[1], sys.argv[2]
 
-    if not os.path.exists(md_file):
-        sys.stderr.write(f"Missing {md_file}\n")
-        exit(1)
+    if not os.path.isfile(infile):
+        print(f"Missing {infile}", file=sys.stderr)
+        sys.exit(1)
 
-    with open(md_file, 'r') as md_filename:
-        md_content = md_filename.read()
-        html_content = convert_markdown(md_content)
+    with open(infile, "r", encoding="utf-8") as f:
+        lines = f.readlines()
 
-    with open(html_file, 'w') as html_filename:
-        html_filename.write(html_content)
+    html_lines = convert_markdown(lines)
 
-    exit(0)
+    with open(outfile, "w", encoding="utf-8") as f:
+        f.write("\n".join(html_lines))
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
